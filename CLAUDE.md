@@ -75,7 +75,13 @@ config.yaml           Repository and workspace configuration
 
 ## Git Identity
 
-When making commits in worktrees, use the git identity from `config.yaml` if configured:
+**IMPORTANT: ALWAYS use the commit wrapper script for ALL git commits in this workspace and its repos/worktrees:**
+
+```bash
+bash .claude/scripts/git-commit.sh -m "commit message"
+```
+
+The script reads `git.user` and `git.email` from `config.yaml`:
 
 ```yaml
 git:
@@ -83,7 +89,7 @@ git:
   email: "your@email.com"
 ```
 
-If `config.yaml` does not have `git.user` or `git.email` set (empty strings), fall back to the system git config (`git config user.name` and `git config user.email`).
+If not set (empty strings), falls back to system git config. NEVER use raw `git commit` — always use the wrapper script.
 
 ## Repos
 
