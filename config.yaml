@@ -1,0 +1,13 @@
+# Workspace Configuration
+
+# Run /workspace-repos to refresh the projects inside ./repos
+repos:
+  # - name: frontend
+  #   url: git@github.com:org/frontend.git
+  #   branch: main
+  # - name: backend-api
+  #   url: git@github.com:org/backend-api.git
+  #   branch: main
+  # - name: auth-service
+  #   url: git@github.com:org/auth-service.git
+  #   branch: develop
