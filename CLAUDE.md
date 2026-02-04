@@ -41,6 +41,8 @@ config.yaml           Repository and workspace configuration
 
 | Skill | Purpose |
 |---|---|
+| `workspace-setup` | Initialize workspace — create config.yaml from template |
+| `workspace-repos` | Clone and sync repos from config.yaml |
 | `workspace-plan` | Plan a workitem via discovery interview |
 | `workspace-plan-review` | Dual-agent review cycle for plans |
 | `workspace-task-generate` | Break plan into self-contained task files |
@@ -50,7 +52,6 @@ config.yaml           Repository and workspace configuration
 | `workspace-worktree` | Create, remove, and check status of git worktrees |
 | `workspace-status` | Show progress across all workitems |
 | `workspace-archive` | Archive completed workitems with reporting |
-| `workspace-repos` | Clone and sync repos from config.yaml |
 
 ## Workitem Types
 
@@ -72,6 +73,18 @@ config.yaml           Repository and workspace configuration
 - ALL code commits happen inside worktrees only — never in repos/ directly
 - Use the `workspace-repos` skill to clone and sync repos from config.yaml
 
+## Git Identity
+
+When making commits in worktrees, use the git identity from `config.yaml` if configured:
+
+```yaml
+git:
+  user: "Your Name"
+  email: "your@email.com"
+```
+
+If `config.yaml` does not have `git.user` or `git.email` set (empty strings), fall back to the system git config (`git config user.name` and `git config user.email`).
+
 ## Repos
 
 Repositories are defined in `config.yaml` and cloned into `repos/`. Use the `workspace-repos` skill to manage them (clone, refresh, status, add, remove). Refresh syncs repos/ to match config.yaml exactly — repos not in config are removed.
@@ -79,6 +92,9 @@ Repositories are defined in `config.yaml` and cloned into `repos/`. Use the `wor
 ## Commands
 
 ```bash
+# Setup workspace (create config.yaml)
+claude "setup workspace"
+
 # Clone/refresh repos from config.yaml
 claude "refresh repos"
 
