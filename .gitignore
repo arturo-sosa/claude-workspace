@@ -1,0 +1,11 @@
+# Keep directories but ignore contents
+repos/*
+!repos/.gitkeep
+
+worktrees/*
+!worktrees/.gitkeep
+
+.claude/workitems/*
+!.claude/workitems/.gitkeep
+
+.idea
