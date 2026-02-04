@@ -9,3 +9,6 @@ worktrees/*
 !.claude/workitems/.gitkeep
 
 .idea
+
+# User config (use config.sample.yaml as template)
+config.yaml
