@@ -13,7 +13,14 @@ Read a workitem plan and generate self-contained task files that can be executed
 
 If the user provides a workitem path (e.g. `feature/auth-middleware`), resolve it to `.claude/workitems/{type}/{name}/plan.md`.
 
-If no path is provided, list available workitems in `.claude/workitems/` and ask the user to select one. Only show workitems that have a `plan.md` file.
+If no path is provided, list available workitems in `.claude/workitems/` that have a `plan.md` file.
+
+**Empty State**: If no workitems exist (or none have a plan.md):
+- Display: "No workitems found. Would you like to create one now?"
+- If user accepts, delegate to workspace-plan skill
+- If user declines, exit gracefully
+
+If workitems exist, ask the user to select one.
 
 ### 2. Validate Plan
 
@@ -44,7 +51,7 @@ Each task file must be fully self-contained using the template from `task-templa
 
 #### Populating Task Fields
 
-- **Worktree**: Set to `worktrees/{type}/{name}/`. Individual repos are subdirectories (e.g. `worktrees/feature/auth-middleware/frontend/`). Task 1 creates this structure and writes the path to `worktree.path`.
+- **Worktree**: Set to `worktrees/{type}/{name}`. Individual repos are subdirectories (e.g. `worktrees/feature/auth-middleware/frontend`). Task 1 creates this structure and writes the path to `worktree.path`.
 - **Description**: Expand from the plan — add implementation details informed by codebase patterns
 - **Dependencies**: List by task number and name, note their completion status
 - **Blockers**: Extract from plan's Unknowns and Risks sections where they apply to this task

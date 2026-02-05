@@ -62,7 +62,7 @@ If not specified, determine from context:
 - If called from `workspace-task-execute`: use the current task's worktree
 - Otherwise: ask the user which worktree to commit
 
-Worktrees are at `worktrees/{type}/{name}/` with repo subdirectories inside.
+Worktrees are at `worktrees/{type}/{name}` with repo subdirectories inside.
 
 ### 2. Determine Mode
 

@@ -81,13 +81,40 @@ Manage git worktrees for workitems. Provides create, remove, and status operatio
 
 **When**: Archiving a workitem, or user explicitly requests cleanup.
 
-**Input**: workitem path (`{type}/{name}`), optionally `--force` to delete branches.
+**Input**: workitem path (`{type}/{name}`), optionally `--force` to proceed despite uncommitted changes and/or delete branches.
 
 **Steps**:
 
 1. **Read worktree path** from `.claude/workitems/{type}/{name}/worktree.path`
 
-2. **For each repo subdirectory** in the worktree:
+2. **Check for uncommitted changes** in each repo worktree:
+   ```bash
+   cd worktrees/{type}/{name}/{repo}
+   git status --porcelain
+   ```
+
+   If any repo has uncommitted changes (non-empty output), **refuse to remove** unless `--force` is specified. Report what would be lost:
+
+   ```
+   Cannot remove worktree — uncommitted changes found:
+
+     📂 frontend
+       M  src/components/Login.tsx
+       M  src/utils/auth.ts
+       ??  src/temp.js
+
+     📂 backend-api
+       M  routes/user.py
+
+   Use --force to remove anyway (uncommitted work will be lost)
+   ```
+
+   **With `--force`**: Proceed with removal despite uncommitted changes. Display a warning:
+   ```
+   ⚠️  WARNING: Removing worktree with uncommitted changes — work will be lost
+   ```
+
+3. **For each repo subdirectory** in the worktree:
 
    a. Remove via git:
    ```bash
@@ -106,17 +133,17 @@ Manage git worktrees for workitems. Provides create, remove, and status operatio
    git branch -D {type}/{name}
    ```
 
-3. **Remove base directory**:
+4. **Remove base directory**:
    ```bash
    rm -rf worktrees/{type}/{name}
    ```
 
-4. **Clean up empty parent**:
+5. **Clean up empty parent**:
    ```bash
    rmdir worktrees/{type} 2>/dev/null || true
    ```
 
-5. **Report**: "Removed N worktree(s)"
+6. **Report**: "Removed N worktree(s)"
 
 ### Worktree Status
 
@@ -164,7 +191,7 @@ Manage git worktrees for workitems. Provides create, remove, and status operatio
 ## File Locations
 
 - Repos: `repos/{repo}/`
-- Worktrees: `worktrees/{type}/{name}/{repo}/`
+- Worktrees: `worktrees/{type}/{name}/{repo}`
 - Worktree path file: `.claude/workitems/{type}/{name}/worktree.path`
 
 ## Rules
@@ -172,5 +199,16 @@ Manage git worktrees for workitems. Provides create, remove, and status operatio
 - Branch name matches workitem: `{type}/{name}`
 - One worktree per repo per workitem
 - Dependencies are installed automatically on create
+- **Uncommitted changes block removal by default** — use `--force` to override
 - Branches are kept on remove (unless `--force`)
 - Always use `git worktree` commands, not manual symlinks
+
+## The `--force` Flag
+
+The `--force` flag has two effects when removing worktrees:
+
+1. **Forces removal despite uncommitted changes** — normally, removal is blocked if any repo has uncommitted work. With `--force`, the removal proceeds and **uncommitted work is permanently lost**.
+
+2. **Deletes the branch** — normally, the branch is preserved after removing the worktree. With `--force`, the branch is deleted from the repo.
+
+**Warning**: Using `--force` can result in permanent data loss. Ensure all work is committed or backed up before using this flag.

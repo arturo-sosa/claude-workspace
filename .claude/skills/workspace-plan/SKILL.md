@@ -17,6 +17,25 @@ When the user provides a brief:
    - Ask if not obvious from the brief
    - Infer from context when possible (e.g. "this is broken" → bugfix)
 2. Suggest a workitem name based on the brief (short, kebab-case, e.g. `auth-middleware`, `login-timeout`). Present it to the user and let them accept or provide their own. If the user provides a name that doesn't follow kebab-case convention, transform it automatically (lowercase, replace spaces and underscores with hyphens, strip special characters) and confirm the normalized name.
+
+   **Name Validation**: After transformation, validate the name against these rules:
+
+   - **Pattern**: Must match `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` (or single character `^[a-z0-9]$`)
+   - **Max length**: 50 characters
+   - **No consecutive hyphens**: Names like `foo--bar` are rejected
+
+   If validation fails, **re-prompt** the user with a clear explanation of what's invalid and ask for a new name. Do not proceed until a valid name is provided.
+
+   **Valid examples**: `auth-middleware`, `login-timeout`, `fix-api`, `a`, `v2-migration`
+
+   **Invalid examples**:
+   - `../escape` — contains path traversal characters
+   - `--double-dash` — starts with hyphen
+   - `UPPERCASE` — contains uppercase letters
+   - `under_score` — contains underscore
+   - `too-long-name-that-exceeds-fifty-characters-which-is-the-limit` — exceeds 50 characters
+   - `name-with--double-hyphen` — contains consecutive hyphens
+
 3. Create `.claude/workitems/{type}/{name}/` directory
 4. Copy the matching template from `templates/{type}.md` to `plan.md`
 5. Fill in the Brief section with the user's original brief
@@ -36,6 +55,26 @@ Limit initial exploration to:
 **Detect available processes**: Read package.json scripts, Makefile targets, or equivalent config to determine which processes exist (build, lint, test, typecheck). Mark them as `[x]` in the Available Processes section and note the commands if non-standard (e.g. `build: npm run build:prod`, `test: jest --config custom.config.js`).
 
 Do NOT explore the entire repository upfront. Go deeper only as the interview reveals relevant areas.
+
+#### Sensitive File Handling
+
+During exploration, **skip files matching these patterns** — do not read their contents:
+
+- `.env*` — environment files (`.env`, `.env.local`, `.env.production`, etc.)
+- `*credentials*` — credential files
+- `*secret*` — secret configuration files
+- `*.pem` — certificate/key files
+- `*.key` — private key files
+
+**Rationale**: Reading these files during planning risks accidentally exposing credentials in conversation history or logs. The planning phase needs to understand codebase structure and patterns, not actual secret values.
+
+**If secrets appear in non-sensitive files**: When exploring regular code files (e.g., `config.py`, `settings.js`), you may encounter what appears to be hardcoded secrets. In this case:
+
+1. **Warn the user** with a note like: "Note: Found what appears to be a hardcoded API key in `config/settings.py`. Consider moving this to an environment variable."
+2. **Continue planning** — do not halt the discovery interview
+3. **Record it** as a risk or consideration in the plan if relevant to the workitem
+
+This is about awareness, not blocking. The goal is to flag potential security concerns without derailing the planning process.
 
 ### 3. Interview
 

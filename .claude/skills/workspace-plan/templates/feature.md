@@ -42,14 +42,14 @@
 ## Tasks
 
 ### Task 1: Worktree Setup
-- **Description**: Create feature branch, set up worktree at worktrees/feature/<n>/ with a subdirectory per affected repo, install dependencies, verify build passes, and write the worktree path to worktree.path
+- **Description**: Create feature branch, set up worktree at worktrees/feature/<n> with a subdirectory per affected repo, install dependencies, verify build passes, and write the worktree path to worktree.path
 - **Dependencies**: None
 - **Acceptance Criteria**:
   - Feature branch exists in affected repos
   - Worktree created with repo subdirectories
   - Dependencies installed
   - Build passes
-  - worktree.path written with single path to worktrees/{type}/{name}/
+  - worktree.path written with single path to worktrees/{type}/{name}
 
 <!-- Add tasks as they are discovered during the interview -->
 

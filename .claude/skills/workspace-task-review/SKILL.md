@@ -70,7 +70,7 @@ Replace the content under Review Feedback in the task file:
 ### Rules
 
 - Do NOT modify any source code, tests, or configuration files
-- The current working directory is the workitem worktree (`worktrees/{type}/{name}/`). Navigate into the appropriate repo subdirectory before running quality checks.
+- The current working directory is the workitem worktree (`worktrees/{type}/{name}`). Navigate into the appropriate repo subdirectory before running quality checks.
 - When multiple repos are affected, run quality checks in each repo subdirectory separately
 - Do NOT modify Worker Notes, Description, Context, or Status
 - Only run quality checks that are marked as available in the task context

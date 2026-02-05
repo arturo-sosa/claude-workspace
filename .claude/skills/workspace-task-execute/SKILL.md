@@ -25,10 +25,14 @@ When this skill is invoked, follow these steps:
 
 ### 1. Identify the Workitem
 
-If not specified, list available workitems and ask the user to choose:
-```
-.claude/workitems/{type}/{name}/
-```
+If not specified, list available workitems in `.claude/workitems/{type}/{name}/`.
+
+**Empty State**: If no workitems exist:
+- Display: "No workitems found. Would you like to create one now?"
+- If user accepts, delegate to workspace-plan skill
+- If user declines, exit gracefully
+
+If workitems exist, ask the user to choose one.
 
 ### 2. Validate Task Files Exist
 
@@ -36,9 +40,23 @@ Check that `.claude/workitems/{type}/{name}/tasks/` contains task files (*.md). 
 
 ### 3. Crash Recovery
 
-Read all task files. For any with `Status: in-progress`, assess progress before deciding how to proceed:
+Read all task files. For any with `Status: in-progress`, assess progress before deciding how to proceed.
 
-#### 3a. Check for Progress
+#### 3a. Clean Up Stale Locks
+
+Before assessing progress, check for stale lock files in the tasks directory:
+
+1. Find all `*.lock` files in `.claude/workitems/{type}/{name}/tasks/`
+2. Read the timestamp from each lock file
+3. Delete any lock file where the timestamp is older than 30 minutes
+
+Report any stale locks cleaned:
+```
+Stale lock cleanup:
+- Deleted 01-setup.md.lock (45 minutes old)
+```
+
+#### 3b. Check for Progress
 
 For each `in-progress` task, look for evidence of work done:
 
@@ -46,7 +64,7 @@ For each `in-progress` task, look for evidence of work done:
 2. **Worker Notes**: Check if there are any `### Round N` entries documenting work
 3. **Git commits**: In the worktree, check `git log --oneline -10` for commits that might relate to this task
 
-#### 3b. Decide Recovery Action
+#### 3c. Decide Recovery Action
 
 **If progress exists** (any subtasks done, worker notes present, or related commits found):
 - Keep `Status: in-progress`
@@ -84,11 +102,22 @@ If no eligible tasks found:
 #### 4b. Determine Working Directory
 
 - **Task 01** (worktree setup): working directory is the workspace root
-- **All other tasks**: read `.claude/workitems/{type}/{name}/worktree.path` to get the worktree path (e.g., `worktrees/feature/auth-middleware/`)
+- **All other tasks**: read `.claude/workitems/{type}/{name}/worktree.path` to get the worktree path (e.g., `worktrees/feature/auth-middleware`)
 
-#### 4c. Mark In-Progress
+#### 4c. Acquire Lock and Mark In-Progress
 
-Edit the task file to set `Status: in-progress`.
+Before claiming the task:
+
+1. **Generate instance identifier** (if not already generated): `{ISO-timestamp}-{random-6-chars}`
+2. **Check for existing lock**: Read `{task-file}.lock` if it exists
+3. **Conflict check**:
+   - If locked by another instance (different identifier) and recent (within 30 min) → skip to next task
+   - If locked by this instance → proceed (resuming work)
+   - If lock is stale (older than 30 min) → delete it and proceed
+4. **Create lock file**: Write instance identifier to `{task-file}.lock`
+5. **Mark in-progress**: Edit the task file to set `Status: in-progress`
+
+The lock must be created **before** writing `Status: in-progress` to prevent race conditions.
 
 #### 4d. Worker-Reviewer Cycle
 
@@ -142,12 +171,15 @@ Rules:
 
 **Check Verdict**: After reviewer completes, read the task file. If Review Feedback contains `**Verdict**: approved` and all acceptance criteria are `[x]`:
 - Mark `Status: completed`
+- **Delete the lock file** (`{task-file}.lock`)
 - Use `workspace-commit` to commit changes (see Committing below)
 - Proceed to next task
 
 If `needs-work`:
 - Spawn worker again (next round)
-- After 5 rounds without approval, leave as `in-progress` for manual review
+- After 5 rounds without approval:
+  - Leave as `in-progress` for manual review
+  - **Delete the lock file** (release for other instances or manual intervention)
 
 ### 5. Execution Summary
 
@@ -174,6 +206,56 @@ On crash recovery:
 You can run multiple worker-reviewer cycles in parallel for **independent tasks** (tasks with no dependency relationship). Use multiple Task tool calls in a single message to spawn them simultaneously.
 
 However, tasks with dependencies must wait for their dependencies to complete first.
+
+## Locking
+
+When multiple executor instances run in parallel, lock files prevent race conditions where two instances try to claim the same task.
+
+### Lock File Format
+
+Lock files use the naming pattern `{task-file}.lock`:
+- Task file: `01-setup.md`
+- Lock file: `01-setup.md.lock`
+
+Lock files are stored in the same directory as task files: `.claude/workitems/{type}/{name}/tasks/`
+
+### Lock File Contents
+
+Each lock file contains a single line with a timestamp and instance identifier:
+```
+2026-02-05T10:30:00Z-abc123
+```
+
+Format: `{ISO-8601-timestamp}-{random-6-char-suffix}`
+
+The instance identifier is generated once when the executor starts and used for all locks it creates during that session.
+
+### Conflict Detection
+
+Before claiming a task, check for an existing lock:
+
+1. Check if `{task-file}.lock` exists
+2. If it exists, read its contents
+3. Parse the timestamp from the lock file
+4. **If the lock is from this instance** (same identifier): safe to proceed
+5. **If the lock is from another instance AND timestamp is within 30 minutes**: skip this task
+6. **If the lock is from another instance AND timestamp is older than 30 minutes**: delete the stale lock and proceed
+
+### Skip Behavior
+
+If a task is locked by another recent instance:
+- Log: `Task 03 locked by another instance, skipping`
+- Move to the next eligible task in the loop
+- Do not wait or retry — the other instance is handling it
+
+### Lock Removal
+
+Remove the lock file when:
+1. **Task completed**: Delete lock after marking `Status: completed` and committing
+2. **Task abandoned**: Delete lock after exceeding max rounds (5) and leaving for manual review
+3. **Crash recovery**: Stale locks (older than 30 min) are deleted during the recovery phase
+
+Always delete the lock file before moving to the next task to allow other instances to claim it if needed.
 
 ## Committing
 

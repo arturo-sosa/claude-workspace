@@ -1,11 +1,11 @@
 # Task <NN>: <Task Name>
 
 ## Status
-pending
+Status: pending
 
 ## Worktree
-<!-- Path to the workitem worktree: worktrees/{type}/{name}/
-     Individual repos are subdirectories: worktrees/{type}/{name}/{repo}/ -->
+<!-- Path to the workitem worktree: worktrees/{type}/{name}
+     Individual repos are subdirectories: worktrees/{type}/{name}/{repo} -->
 
 ## Description
 <!-- What this task accomplishes and how to implement it -->

@@ -35,12 +35,14 @@ When this skill is invoked, follow these steps:
 
 ### 1. Identify the Workitem
 
-If not specified, list available workitems and ask the user to choose:
-```
-.claude/workitems/{type}/{name}/
-```
+If not specified, list available workitems in `.claude/workitems/{type}/{name}/`.
 
-Extract the type (feature, bugfix, refactor, hotfix, chore) from the path.
+**Empty State**: If no workitems exist:
+- Display: "No workitems found. Would you like to create one now?"
+- If user accepts, delegate to workspace-plan skill
+- If user declines, exit gracefully
+
+If workitems exist, ask the user to choose one. Extract the type (feature, bugfix, refactor, hotfix, chore) from the path.
 
 ### 2. Validate Plan Exists
 

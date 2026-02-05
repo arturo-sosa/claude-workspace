@@ -27,20 +27,40 @@ If the Review Feedback section has content, this is a subsequent round. Address 
 
 ### 3. Task 01: Worktree Setup
 
-If this is Task 01 (worktree setup), do NOT run git commands directly. Instead:
+If this is Task 01 (worktree setup), follow the `workspace-worktree` skill instructions to create worktrees using direct git commands:
 
 1. Read the plan to identify which repos are affected
-2. Run the worktree setup script with those repos:
+2. Create the base worktree directory:
    ```bash
-   bash .claude/skills/workspace-worktree/scripts/worktree.sh create {type}/{name} {repo1} {repo2} ...
+   mkdir -p worktrees/{type}/{name}
    ```
-3. Verify the script output — it reports success/failure per repo
-4. Mark subtasks complete based on the script output
-5. Log the results in Worker Notes
+3. For each repo, run these git commands from the workspace root:
+   ```bash
+   # Create branch if it doesn't exist
+   cd repos/{repo}
+   git branch {type}/{name} 2>/dev/null || true
+
+   # Create worktree
+   git worktree add ../../worktrees/{type}/{name}/{repo} {type}/{name}
+   ```
+4. Install dependencies in each worktree (detect from lockfile):
+   ```bash
+   cd worktrees/{type}/{name}/{repo}
+   # yarn.lock -> yarn install --frozen-lockfile
+   # pnpm-lock.yaml -> pnpm install --frozen-lockfile
+   # package-lock.json -> npm ci
+   # package.json only -> npm install
+   ```
+5. Write the worktree path file:
+   ```bash
+   echo "worktrees/{type}/{name}" > .claude/workitems/{type}/{name}/worktree.path
+   ```
+6. Mark subtasks complete as each repo worktree is successfully created
+7. Log the results in Worker Notes
 
 ### 4. Execute
 
-The current working directory is the workitem worktree (`worktrees/{type}/{name}/`). Each affected repo is a subdirectory (e.g. `frontend/`, `backend-api/`). Navigate into the appropriate repo subdirectory before running commands or editing files.
+The current working directory is the workitem worktree (`worktrees/{type}/{name}`). Each affected repo is a subdirectory (e.g. `frontend`, `backend-api`). Navigate into the appropriate repo subdirectory before running commands or editing files.
 
 Work through subtasks in order:
 

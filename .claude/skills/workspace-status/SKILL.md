@@ -31,6 +31,11 @@ When a workitem is specified, show detailed information about it.
 
 List directories in `.claude/workitems/{type}/` for each type (feature, bugfix, refactor, hotfix, chore). Skip the `archive/` directory.
 
+**Empty State**: If no active workitems exist:
+- Display: "No active workitems. Would you like to create one now?"
+- If user accepts, delegate to workspace-plan skill
+- If user declines, exit gracefully (e.g., "Use workspace-plan to create a workitem when ready.")
+
 ### 2. For Each Workitem, Determine:
 
 **Phase** (current stage):
@@ -118,11 +123,10 @@ To get a task's status, read the file and find the `## Status` section:
 
 ```markdown
 ## Status
-
-pending
+Status: pending
 ```
 
-The status is the first non-empty line after `## Status`.
+The status is the value after `Status: ` on the line immediately following `## Status`. Valid values are: `pending`, `in-progress`, `completed`.
 
 ## File Locations
 

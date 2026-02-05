@@ -22,7 +22,14 @@ User requests like:
 
 ### 1. Identify the Workitem
 
-If not specified, list available workitems (those with tasks) and ask the user to choose.
+If not specified, list available workitems (those with tasks) in `.claude/workitems/{type}/{name}/`.
+
+**Empty State**: If no workitems exist (or none have tasks):
+- Display: "No workitems found. Would you like to create one now?"
+- If user accepts, delegate to workspace-plan skill
+- If user declines, exit gracefully
+
+If workitems exist, ask the user to choose one.
 
 ### 2. Validate Completion
 
@@ -38,7 +45,35 @@ Cannot archive — incomplete tasks:
   04-update-docs.md: pending
 ```
 
-### 3. Generate Workitem Report
+### 3. Verify Branch is Pushed
+
+Read the worktree path from `.claude/workitems/{type}/{name}/worktree.path`.
+
+For each repo subdirectory in the worktree:
+
+1. **Check if branch is pushed to remote**:
+   ```bash
+   cd worktrees/{type}/{name}/{repo}
+   git rev-parse --abbrev-ref HEAD  # Get current branch
+   git fetch origin
+   git rev-list HEAD...origin/{branch} --count  # Check for unpushed commits
+   ```
+
+2. **Auto-push if needed**:
+   - If there are unpushed commits, push the branch:
+     ```bash
+     git push -u origin {branch}
+     ```
+   - Report what was pushed:
+     ```
+     Pushed branch {type}/{name} to origin for {repo}
+     ```
+
+3. **Continue with archive** after all branches are pushed
+
+This ensures all work is preserved on the remote before archiving locally.
+
+### 4. Generate Workitem Report
 
 Read the plan and all task files, paying attention to Worker Notes and Review Feedback (what actually happened).
 
@@ -70,7 +105,7 @@ Any tech debt introduced, known limitations, or future work items.
 
 Base everything on what Worker Notes and Review Feedback say actually happened, not what the plan said should happen.
 
-### 4. Per-Repo Documentation
+### 5. Per-Repo Documentation
 
 Read the worktree path from `.claude/workitems/{type}/{name}/worktree.path`.
 
@@ -85,27 +120,37 @@ For each repo subdirectory in the worktree:
      - Testing details
 
 2. **Evaluate CLAUDE.md updates**:
-   - Only update for **structural changes**:
-     - Infrastructure or architecture changes
-     - New or removed dependencies
-     - New conventions or patterns
-     - API changes (endpoints, contracts, schemas)
-     - Configuration changes
-   - Do NOT add feature summaries, bug descriptions, or changelog entries
-   - If no structural changes, do NOT modify CLAUDE.md
+
+   CLAUDE.md describes the codebase structure and conventions for AI assistants. Only update it for changes that affect how an AI should navigate or work with the codebase.
+
+   **DO update CLAUDE.md for**:
+   - New top-level directories (e.g., added `migrations/` folder)
+   - New external service integrations (e.g., added Redis caching layer)
+   - New build targets or commands (e.g., added `npm run e2e`)
+   - Breaking API changes (e.g., changed auth endpoint from `/login` to `/auth/login`)
+   - New conventions or patterns (e.g., introduced repository pattern for data access)
+
+   **DO NOT update CLAUDE.md for**:
+   - New files within existing structure (e.g., added `UserService.ts` to `services/`)
+   - Internal refactors (e.g., split large function into smaller helpers)
+   - Bug fixes (e.g., fixed null pointer in auth handler)
+   - Test additions (e.g., added unit tests for UserService)
+   - Feature implementations that follow existing patterns (e.g., added new API endpoint following existing conventions)
+
+   If no structural changes, do NOT modify CLAUDE.md
 
 3. **Commit documentation**:
    - Use `workspace-commit` or commit directly with proper identity
    - Message: `docs: {type}/{name} documentation`
 
-### 5. Remove Worktrees
+### 6. Remove Worktrees
 
 Use `workspace-worktree` remove operation:
 - Remove all repo worktrees for this workitem
 - Keep branches (they contain the commits)
 - Clean up the worktree directory
 
-### 6. Move to Archive
+### 7. Move to Archive
 
 ```bash
 mkdir -p .claude/workitems/archive/{type}
@@ -117,7 +162,7 @@ Clean up empty type directory:
 rmdir .claude/workitems/{type} 2>/dev/null || true
 ```
 
-### 7. Report Completion
+### 8. Report Completion
 
 ```
 Archive Complete
@@ -140,7 +185,7 @@ The archive preserves:
 
 - Active workitems: `.claude/workitems/{type}/{name}/`
 - Archived workitems: `.claude/workitems/archive/{type}/{name}/`
-- Worktrees: `worktrees/{type}/{name}/`
+- Worktrees: `worktrees/{type}/{name}`
 
 ## Rules
 
