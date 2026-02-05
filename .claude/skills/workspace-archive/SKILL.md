@@ -5,69 +5,147 @@ description: Archive a completed workitem. Generates a report, updates repo docu
 
 # Workspace Archive
 
-Archive a completed workitem by generating documentation, cleaning up worktrees, and moving the workitem to the archive.
+Archive a completed workitem by generating documentation, cleaning up worktrees, and moving to the archive.
+
+## Trigger
+
+User requests like:
+- "archive feature/auth-middleware"
+- "close the workitem"
+- "finish bugfix/login-timeout"
 
 ## Prerequisites
 
 - All tasks in the workitem must be `completed`
-- Claude CLI (`claude`) available in PATH
 
-## Usage
+## Archive Steps
 
-```bash
-# By workitem path
-bash <skill-path>/scripts/archive.sh feature/auth-middleware
+### 1. Identify the Workitem
 
-# Interactive selection
-bash <skill-path>/scripts/archive.sh
+If not specified, list available workitems (those with tasks) and ask the user to choose.
+
+### 2. Validate Completion
+
+Read all task files in `.claude/workitems/{type}/{name}/tasks/`. Check each file's `## Status` section.
+
+If any task is not `completed`:
+- Report which tasks are incomplete
+- Abort the archive
+
+```
+Cannot archive — incomplete tasks:
+  03-write-tests.md: in-progress
+  04-update-docs.md: pending
 ```
 
-## How It Works
+### 3. Generate Workitem Report
 
-### 1. Validate Completion
+Read the plan and all task files, paying attention to Worker Notes and Review Feedback (what actually happened).
 
-Verify all tasks are `completed`. If any are `pending` or `in-progress`, abort with a summary of incomplete tasks.
+Write a report to `.claude/workitems/{type}/{name}/report.md`:
 
-### 2. Generate Workitem Report
+```markdown
+# Report: {type}/{name}
 
-Launch a subagent that reads the plan, all task files (including worker notes and review feedback), and generates a consolidated report at `.claude/workitems/{type}/{name}/report.md`.
+## Summary
+What was accomplished in 2-3 sentences.
 
-The report covers:
-- Summary of what was done
-- Repos and files affected
-- Key decisions made during implementation
-- Issues encountered and how they were resolved
-- Testing summary
-- Any follow-up items or tech debt introduced
+## Changes
+For each repo affected:
+- Key changes (files created/modified)
+- What was added/removed/changed
 
-### 3. Per-Repo Documentation
+## Decisions
+Key technical decisions made during implementation and why.
 
-For each repo in the worktree, launch a subagent that:
+## Issues
+Problems encountered and how they were resolved.
 
-1. Reads the workitem report
-2. Reads the diff of changes in that repo's worktree
-3. Generates `docs/{type}-{name}.md` in the worktree with what is relevant to that repo
-4. Evaluates whether the repo's `CLAUDE.md` needs updates — only for structural changes:
-    - Infrastructure or architecture changes
-    - New or removed dependencies
-    - New conventions or patterns introduced
-    - API changes (endpoints, contracts, schemas)
-    - Configuration changes
-    - NOT feature summaries, NOT bug descriptions
-5. If `CLAUDE.md` needs updates, applies them
-6. Commits the documentation changes in the worktree
+## Testing
+What was tested and how.
 
-### 4. Remove Worktrees
+## Follow-Up
+Any tech debt introduced, known limitations, or future work items.
+```
 
-Runs `workspace-worktree remove {type}/{name}` to clean up git worktrees. Branches are kept — they contain the commits.
+Base everything on what Worker Notes and Review Feedback say actually happened, not what the plan said should happen.
 
-### 5. Move to Archive
+### 4. Per-Repo Documentation
 
-Moves `.claude/workitems/{type}/{name}/` to `.claude/workitems/archive/{type}/{name}/`.
+Read the worktree path from `.claude/workitems/{type}/{name}/worktree.path`.
+
+For each repo subdirectory in the worktree:
+
+1. **Create repo-specific docs**:
+   - Create `docs/{type}-{name}.md` in the worktree
+   - Include only what's relevant to this repo:
+     - What changed and why
+     - Files affected
+     - New patterns or conventions
+     - Testing details
+
+2. **Evaluate CLAUDE.md updates**:
+   - Only update for **structural changes**:
+     - Infrastructure or architecture changes
+     - New or removed dependencies
+     - New conventions or patterns
+     - API changes (endpoints, contracts, schemas)
+     - Configuration changes
+   - Do NOT add feature summaries, bug descriptions, or changelog entries
+   - If no structural changes, do NOT modify CLAUDE.md
+
+3. **Commit documentation**:
+   - Use `workspace-commit` or commit directly with proper identity
+   - Message: `docs: {type}/{name} documentation`
+
+### 5. Remove Worktrees
+
+Use `workspace-worktree` remove operation:
+- Remove all repo worktrees for this workitem
+- Keep branches (they contain the commits)
+- Clean up the worktree directory
+
+### 6. Move to Archive
+
+```bash
+mkdir -p .claude/workitems/archive/{type}
+mv .claude/workitems/{type}/{name} .claude/workitems/archive/{type}/{name}
+```
+
+Clean up empty type directory:
+```bash
+rmdir .claude/workitems/{type} 2>/dev/null || true
+```
+
+### 7. Report Completion
+
+```
+Archive Complete
+================
+Workitem: feature/auth-middleware
+Report:   .claude/workitems/archive/feature/auth-middleware/report.md
+Archive:  .claude/workitems/archive/feature/auth-middleware/
+```
+
+## Archive Contents
 
 The archive preserves:
-- plan.md
-- review-criteria.md
-- report.md
-- tasks/
-- logs/
+- `plan.md` — original plan
+- `review-criteria.md` — review checklist
+- `report.md` — generated completion report
+- `tasks/` — all task files with worker notes and review feedback
+- `logs/` — execution logs
+
+## File Locations
+
+- Active workitems: `.claude/workitems/{type}/{name}/`
+- Archived workitems: `.claude/workitems/archive/{type}/{name}/`
+- Worktrees: `worktrees/{type}/{name}/`
+
+## Rules
+
+- Cannot archive if any tasks are incomplete
+- Report is based on actual work (worker notes), not planned work
+- CLAUDE.md updates are only for structural changes
+- Branches are kept after archive (contain commit history)
+- Logs are preserved for debugging/auditing

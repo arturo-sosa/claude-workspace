@@ -1,52 +1,176 @@
 ---
 name: workspace-worktree
-description: Manage git worktrees for workitems. Use when creating, removing, or checking the status of worktrees. Typically invoked by the Task 01 worker during workitem execution — the LLM identifies affected repos from the plan and calls the script with the repo list. Also used for cleanup of completed workitems. Triggers on requests to create worktrees, remove worktrees, or check worktree status.
+description: Manage git worktrees for workitems. Use when creating, removing, or checking the status of worktrees. Typically invoked by the Task 01 worker during workitem execution. Also used for cleanup of completed workitems. Triggers on requests to create worktrees, remove worktrees, or check worktree status.
 ---
 
 # Workspace Worktree
 
-Manage git worktrees for workitems. Provides deterministic creation, removal, and status of worktrees so the LLM doesn't need to run git commands directly.
+Manage git worktrees for workitems. Provides create, remove, and status operations.
 
-## Usage
+## Trigger
 
-```bash
-# Create worktrees for a workitem
-bash <skill-path>/scripts/worktree.sh create {type}/{name} {repo1} {repo2} ...
+- Task 01 worker needs to set up worktrees
+- User requests "create worktree for feature/auth-middleware"
+- User requests "remove worktree" or "clean up worktrees"
+- User requests "worktree status"
+- `workspace-archive` needs to remove worktrees
 
-# Remove worktrees for a workitem
-bash <skill-path>/scripts/worktree.sh remove {type}/{name}
+## Operations
 
-# Show worktree status for a workitem
-bash <skill-path>/scripts/worktree.sh status {type}/{name}
-```
+### Create Worktrees
 
-## Commands
+**When**: Task 01 of a workitem, or user explicitly requests.
 
-### create
+**Input**: workitem path (`{type}/{name}`) and list of repos to include.
 
-Creates the worktree structure for a workitem:
+**Steps**:
 
-1. Creates branch `{type}/{name}` in each specified repo under `repos/`
-2. Creates `worktrees/{type}/{name}/` directory
-3. Runs `git worktree add` for each repo into `worktrees/{type}/{name}/{repo}/`
-4. Installs dependencies in each worktree (detects package manager from lockfile)
-5. Verifies build passes in each worktree (if build process is available)
-6. Writes the worktree path to `.claude/workitems/{type}/{name}/worktree.path`
+1. **Identify repos**: Read from the plan which repos are affected, or use the provided list.
 
-If a branch already exists, it reuses it. If a worktree already exists, it skips it.
+2. **Create base directory**:
+   ```bash
+   mkdir -p worktrees/{type}/{name}
+   ```
 
-### remove
+3. **For each repo**:
 
-Cleans up worktrees for a completed or abandoned workitem:
+   a. Verify repo exists at `repos/{repo}/.git`
 
-1. Runs `git worktree remove` for each repo worktree
-2. Removes the `worktrees/{type}/{name}/` directory
-3. Optionally deletes the branches (prompts unless `--force` is passed)
+   b. Check if worktree already exists at `worktrees/{type}/{name}/{repo}` — skip if so
 
-### status
+   c. Create branch if it doesn't exist:
+   ```bash
+   cd repos/{repo}
+   git branch {type}/{name} 2>/dev/null || true  # OK if exists
+   ```
 
-Shows the current state of worktrees for a workitem:
+   d. Create worktree:
+   ```bash
+   cd repos/{repo}
+   git worktree add ../../worktrees/{type}/{name}/{repo} {type}/{name}
+   ```
 
-- Which repo worktrees exist
-- Branch name and status (clean/dirty, ahead/behind)
-- Whether dependencies are installed
+   e. Install dependencies (detect from lockfile):
+   ```bash
+   cd worktrees/{type}/{name}/{repo}
+   # If yarn.lock exists:
+   yarn install --frozen-lockfile
+   # If pnpm-lock.yaml exists:
+   pnpm install --frozen-lockfile
+   # If package-lock.json exists:
+   npm ci
+   # If only package.json exists:
+   npm install
+   ```
+
+4. **Write worktree path**:
+   ```bash
+   echo "worktrees/{type}/{name}" > .claude/workitems/{type}/{name}/worktree.path
+   ```
+
+5. **Report summary**:
+   ```
+   Worktree Setup Summary
+   ======================
+   Created: 2
+   Skipped: 1 (already exist)
+   Failed: 0
+   ```
+
+### Remove Worktrees
+
+**When**: Archiving a workitem, or user explicitly requests cleanup.
+
+**Input**: workitem path (`{type}/{name}`), optionally `--force` to delete branches.
+
+**Steps**:
+
+1. **Read worktree path** from `.claude/workitems/{type}/{name}/worktree.path`
+
+2. **For each repo subdirectory** in the worktree:
+
+   a. Remove via git:
+   ```bash
+   cd repos/{repo}
+   git worktree remove ../../worktrees/{type}/{name}/{repo} --force
+   ```
+
+   b. If git command fails, remove directory manually:
+   ```bash
+   rm -rf worktrees/{type}/{name}/{repo}
+   ```
+
+   c. If `--force` specified, delete the branch:
+   ```bash
+   cd repos/{repo}
+   git branch -D {type}/{name}
+   ```
+
+3. **Remove base directory**:
+   ```bash
+   rm -rf worktrees/{type}/{name}
+   ```
+
+4. **Clean up empty parent**:
+   ```bash
+   rmdir worktrees/{type} 2>/dev/null || true
+   ```
+
+5. **Report**: "Removed N worktree(s)"
+
+### Worktree Status
+
+**When**: User wants to check worktree state.
+
+**Input**: workitem path (`{type}/{name}`)
+
+**Steps**:
+
+1. **Read worktree path** from `.claude/workitems/{type}/{name}/worktree.path`
+
+2. **For each repo subdirectory**:
+
+   a. Check if valid worktree (has `.git` file)
+
+   b. Get current branch:
+   ```bash
+   cd worktrees/{type}/{name}/{repo}
+   git branch --show-current
+   ```
+
+   c. Check for uncommitted changes:
+   ```bash
+   git status --porcelain | wc -l
+   ```
+
+   d. Check if dependencies installed (node_modules exists for JS projects)
+
+3. **Report**:
+   ```
+   Worktree status for: feature/auth-middleware
+   Branch: feature/auth-middleware
+
+     📂 frontend
+       🌿 Branch: feature/auth-middleware
+       ✅ Clean
+       📦 Dependencies installed
+
+     📂 backend-api
+       🌿 Branch: feature/auth-middleware
+       ⚠️  Dirty (3 changed files)
+       📦 Dependencies installed
+   ```
+
+## File Locations
+
+- Repos: `repos/{repo}/`
+- Worktrees: `worktrees/{type}/{name}/{repo}/`
+- Worktree path file: `.claude/workitems/{type}/{name}/worktree.path`
+
+## Rules
+
+- Branch name matches workitem: `{type}/{name}`
+- One worktree per repo per workitem
+- Dependencies are installed automatically on create
+- Branches are kept on remove (unless `--force`)
+- Always use `git worktree` commands, not manual symlinks
