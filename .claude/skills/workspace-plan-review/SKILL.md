@@ -5,7 +5,7 @@ description: Dual-agent plan review workflow for workitems. Use when the user wa
 
 # Workspace Plan Review
 
-Orchestrate a two-agent review workflow on an existing workitem plan by spawning reviewer and planner subagents using the Task tool. The reviewer evaluates the plan against type-specific criteria, and the planner addresses feedback. The cycle repeats until approved or max rounds reached.
+Orchestrate a two-agent review workflow on an existing workitem plan using agent teams. Creates a team with planner and reviewer teammates that communicate directly via messages. The reviewer evaluates the plan against type-specific criteria and messages the planner with feedback. The planner revises the plan and notifies the reviewer. This natural conversation continues until the reviewer approves the plan or the cycle stalls.
 
 ## Prerequisites
 
@@ -67,16 +67,31 @@ If the plan file doesn't have a Review Status section, add this header after the
 Last reviewed: (not yet reviewed)
 ```
 
-### 5. Review-Planner Cycle
+### 5. Create Review Team
 
-Run up to 3 rounds of reviewer → planner:
+Use the Teammate tool to create an agent team for this review cycle:
 
-**Spawn Reviewer** using Task tool:
 ```
-Use the Task tool with subagent_type "general-purpose" to spawn a reviewer.
+Use Teammate tool with operation: "spawnTeam"
+team_name: "{type}-{name}-review"
+description: "Plan review for {type}/{name} workitem"
+agent_type: "orchestrator"
+```
+
+This creates the team infrastructure and designates you as the team lead.
+
+### 6. Spawn Reviewer Teammate
+
+Use the Task tool to spawn a reviewer teammate that will evaluate the plan:
+
+```
+Use the Task tool with:
+- subagent_type: "general-purpose"
+- team_name: "{type}-{name}-review"
+- name: "reviewer"
 
 Prompt:
-"You are a plan reviewer. Evaluate the workitem plan against the review criteria.
+"You are a plan reviewer for the {type}/{name} workitem. Your role is to evaluate the plan against review criteria and work with the planner teammate to ensure it's implementation-ready.
 
 Read these files:
 - Plan: {absolute_path_to_plan.md}
@@ -87,50 +102,83 @@ For each criterion in review-criteria.md:
 2. Mark [x] if satisfied, leave [ ] if not
 3. Add notes explaining your assessment
 
-After evaluating all criteria, update the plan's Review Status section:
-- If ALL criteria are satisfied: mark [x] Reviewed and set 'Last reviewed: {date}'
-- If ANY criteria are not satisfied: leave [ ] Reviewed
-
 Write your detailed feedback at the bottom of review-criteria.md under a '## Reviewer Notes' section.
 
-Be thorough and critical. The plan must be implementation-ready before approval."
+**Interactive Review Process:**
+- If you find issues or gaps: Use SendMessage tool (type: 'message', recipient: 'planner') to send specific feedback about what needs improvement
+- If the planner makes changes: Re-evaluate the plan and criteria
+- You can ask clarifying questions via message if something is unclear
+- When ALL criteria are satisfied and the plan is implementation-ready:
+  1. Mark [x] Reviewed in the plan's Review Status section
+  2. Set 'Last reviewed: {current_date}'
+  3. Use SendMessage tool (type: 'message', recipient: 'team-lead') to notify: 'Plan approved - all criteria met'
+
+Be thorough and critical. The plan must be implementation-ready before approval. Engage in discussion with the planner if needed to clarify intent or push for specificity."
 ```
 
-**Check Approval**: After reviewer completes, read the plan file. If Review Status shows `[x] Reviewed`:
-- Report success to the user
-- The plan is approved and ready for task generation
+### 7. Spawn Planner Teammate
 
-**If Not Approved**, spawn Planner:
+Use the Task tool to spawn a planner teammate that will address feedback:
+
 ```
-Use the Task tool with subagent_type "general-purpose" to spawn a planner.
+Use the Task tool with:
+- subagent_type: "general-purpose"
+- team_name: "{type}-{name}-review"
+- name: "planner"
 
 Prompt:
-"You are a plan author. Address the reviewer's feedback to improve the plan.
+"You are the plan author for the {type}/{name} workitem. Your role is to address the reviewer's feedback and improve the plan until it meets all review criteria.
 
 Read these files:
 - Plan: {absolute_path_to_plan.md}
-- Criteria: {absolute_path_to_review-criteria.md} (check Reviewer Notes for feedback)
+- Criteria: {absolute_path_to_review-criteria.md}
 
-For each unmet criterion (marked [ ] in review-criteria.md):
-1. Read the reviewer's notes explaining what's missing
-2. Update the plan to address the feedback
-3. Be specific and concrete — vague plans get rejected
+**Interactive Revision Process:**
+- The reviewer will message you with specific feedback about what needs improvement
+- For each issue raised:
+  1. Read the reviewer's notes in review-criteria.md
+  2. Update the plan to address the feedback with specific, concrete details
+  3. Update the plan's Review Status: 'Last reviewed: (pending review)'
+- After making changes, use SendMessage tool (type: 'message', recipient: 'reviewer') to notify: 'Plan revised - please re-evaluate'
+- You can ask clarifying questions if feedback is unclear
+- You can push back on feedback with reasoning if you believe the plan adequately addresses a criterion
 
-After making changes, update the plan's Review Status:
-- Set 'Last reviewed: (pending review)'
-- Leave [ ] Reviewed (reviewer will update this)
+Do NOT mark criteria as satisfied in review-criteria.md — that's the reviewer's job.
+Do NOT mark [x] Reviewed in the plan — that's the reviewer's job.
 
-Do NOT mark criteria as satisfied — that's the reviewer's job."
+Be responsive to feedback and willing to add detail where the plan is vague. Engage in discussion with the reviewer to reach a shared understanding of what makes the plan implementation-ready."
 ```
 
-After planner completes, loop back to spawn reviewer again.
+### 8. Monitor Review Cycle
 
-### 6. Max Rounds Reached
+As the team lead, you now monitor the review cycle but do not actively manage it. The planner and reviewer teammates will communicate directly via messages until convergence.
 
-If 3 rounds complete without approval:
-- Report to the user which criteria remain unmet
-- Suggest the user manually review and adjust the plan
-- Do NOT force approval
+**What to watch for:**
+
+1. **Approval notification**: When the reviewer messages you with approval, read the plan file to confirm `[x] Reviewed` is marked, then proceed to "Cleanup Team" below.
+
+2. **Stalled conversation**: If many rounds pass without approval and the conversation seems stuck in a loop, check the latest review-criteria.md feedback. You can message either teammate to help break the impasse.
+
+3. **Blocked state**: If a teammate messages you about a blocker (e.g., "plan requires architectural decision beyond my scope"), escalate to the user for input.
+
+**You will receive messages automatically** — no need to poll or check manually. When a message arrives from a teammate, respond appropriately or proceed to the next step if it's an approval notification.
+
+### 9. Cleanup Team
+
+Once the reviewer has approved the plan (or if you determine the review cycle should end):
+
+1. **Verify approval**: Read the plan file and confirm Review Status shows `[x] Reviewed`
+
+2. **Report to user**:
+   - On success: "Plan approved and ready for task generation"
+   - If ending without approval: "Review cycle did not converge. See review-criteria.md for remaining issues."
+
+3. **Clean up the team**:
+```
+Use Teammate tool with operation: "cleanup"
+```
+
+This removes the team and task directories.
 
 ## Output
 
@@ -138,13 +186,35 @@ On success:
 - Plan file has `[x] Reviewed` in Review Status
 - All criteria in review-criteria.md are marked `[x]`
 - Plan is ready for `workspace-task-generate`
+- Team cleaned up
 
-On failure (max rounds):
-- Report unmet criteria
-- Plan needs manual intervention
+If review cycle does not converge:
+- Report unmet criteria to user
+- Explain conversation state (e.g., "planner and reviewer disagree on scope")
+- Suggest user manually review and adjust the plan
+- Team cleaned up
 
 ## File Locations
 
 - Plan: `.claude/workitems/{type}/{name}/plan.md`
 - Criteria: `.claude/workitems/{type}/{name}/review-criteria.md`
 - Criteria templates: `.claude/skills/workspace-plan-review/criteria/{type}.md`
+
+## Key Differences from Previous Approach
+
+This skill was refactored to use **agent teams** instead of sequential subagent spawning. Key improvements:
+
+| Aspect | Previous (Subagents) | Current (Agent Teams) |
+|---|---|---|
+| **Round limit** | Hard 3-round cap | No limit - natural convergence |
+| **Communication** | File-only (review-criteria.md) | Direct messaging + files |
+| **Discussion** | None - one-way feedback | Reviewer can ask clarifying questions |
+| **Pushback** | None - planner must accept all feedback | Planner can discuss with reasoning |
+| **Orchestration** | Lead manages spawn/wait/read loops | Lead creates team, then monitors passively |
+| **Flexibility** | Rigid cycle, may need more/fewer rounds | Adapts to complexity of plan |
+
+**Why this is better:**
+- Plans that need minor tweaks converge faster (no forced 3 rounds)
+- Complex plans can iterate beyond 3 rounds until truly ready
+- Planner and reviewer can have nuanced discussions about tradeoffs
+- Lead's context window not consumed by orchestration loops
