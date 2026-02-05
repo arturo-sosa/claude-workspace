@@ -13,6 +13,12 @@ sedi() {
   fi
 }
 
+# Read the status value from a task file
+get_status() {
+  local file="$1"
+  sed -n '/^## Status$/,/^$/p' "$file" | grep -v "^## Status$" | grep -v "^$" | head -1 | tr -d '[:space:]'
+}
+
 # Update status field in a task file
 set_status() {
   local file="$1" new_status="$2"
@@ -107,7 +113,7 @@ echo ""
 # Recover stuck in-progress tasks from previous crashed runs
 for task_file in "$TASKS_DIR"/*.md; do
   [ -f "$task_file" ] || continue
-  STATUS=$(sed -n '/^## Status$/,/^$/p' "$task_file" | tail -1 | tr -d '[:space:]')
+  STATUS=$(get_status "$task_file")
   if [ "$STATUS" = "in-progress" ]; then
     echo "🔄 Recovering stuck task: $(basename "$task_file") → pending"
     set_status "$task_file" "pending"
@@ -165,7 +171,7 @@ check_dependencies() {
     fi
 
     local dep_status
-    dep_status=$(sed -n '/^## Status$/,/^$/p' "$dep_file" | tail -1 | tr -d '[:space:]')
+    dep_status=$(get_status "$dep_file")
 
     if [ "$dep_status" != "completed" ]; then
       return 1
@@ -187,7 +193,7 @@ while true; do
   for task_file in "$TASKS_DIR"/*.md; do
     [ -f "$task_file" ] || continue
 
-    STATUS=$(sed -n '/^## Status$/,/^$/p' "$task_file" | tail -1 | tr -d '[:space:]')
+    STATUS=$(get_status "$task_file")
 
     if [ "$STATUS" != "pending" ]; then
       continue

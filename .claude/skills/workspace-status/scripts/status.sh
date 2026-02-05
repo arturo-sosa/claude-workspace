@@ -149,7 +149,7 @@ show_detail() {
       [ -f "$task_file" ] || continue
       local name status icon
       name=$(basename "$task_file" .md)
-      status=$(sed -n '/^## Status$/,/^$/p' "$task_file" | tail -1 | tr -d '[:space:]')
+      status=$(sed -n '/^## Status$/,/^$/p' "$task_file" | grep -v "^## Status$" | grep -v "^$" | head -1 | tr -d '[:space:]')
       case "$status" in
         completed)   icon="✅" ;;
         in-progress) icon="🔄" ;;

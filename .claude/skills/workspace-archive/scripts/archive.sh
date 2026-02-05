@@ -87,7 +87,7 @@ fi
 INCOMPLETE=()
 for task_file in "$TASKS_DIR"/*.md; do
   [ -f "$task_file" ] || continue
-  STATUS=$(sed -n '/^## Status$/,/^$/p' "$task_file" | tail -1 | tr -d '[:space:]')
+  STATUS=$(sed -n '/^## Status$/,/^$/p' "$task_file" | grep -v "^## Status$" | grep -v "^$" | head -1 | tr -d '[:space:]')
   if [ "$STATUS" != "completed" ]; then
     INCOMPLETE+=("$(basename "$task_file"): $STATUS")
   fi
