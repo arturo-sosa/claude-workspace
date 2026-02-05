@@ -81,7 +81,23 @@ git:
 
 If `git.user` or `git.email` are empty or missing, fall back to system git config (omit the `-c` flags).
 
-### 4. Check for Changes
+### 4. Check Attribution Settings
+
+Read `.claude/setting.json` for attribution configuration:
+
+```json
+{
+  "attribution": {
+    "commit": "Co-Authored-By: Name <email>",
+    "pr": "..."
+  }
+}
+```
+
+- If `attribution.commit` is a non-empty string, append it as a trailer to the commit message
+- If `attribution.commit` is empty or missing, do NOT add any attribution
+
+### 5. Check for Changes
 
 For each repo subdirectory in the worktree:
 
@@ -93,7 +109,7 @@ git diff --stat
 
 Skip repos with no changes.
 
-### 5. Stage and Commit
+### 6. Stage and Commit
 
 #### Task Mode
 
@@ -102,8 +118,12 @@ For each repo with changes:
 ```bash
 cd {worktree_path}/{repo}
 git add -A
-git -c "user.name={git_user}" -c "user.email={git_email}" commit -m "{type}: {description}"
+git -c "user.name={git_user}" -c "user.email={git_email}" commit -m "{message}"
 ```
+
+Where `{message}` is:
+- Without attribution: `{type}: {description}`
+- With attribution: `{type}: {description}\n\n{attribution.commit}`
 
 #### Manual Mode
 
@@ -115,10 +135,14 @@ Analyze the changes to determine logical groupings:
 4. For each logical group:
    ```bash
    git add {specific files}
-   git -c "user.name={git_user}" -c "user.email={git_email}" commit -m "{type}({scope}): {description}"
+   git -c "user.name={git_user}" -c "user.email={git_email}" commit -m "{message}"
    ```
 
-### 6. Commit Message Types
+Where `{message}` is:
+- Without attribution: `{type}({scope}): {description}`
+- With attribution: `{type}({scope}): {description}\n\n{attribution.commit}`
+
+### 7. Commit Message Types
 
 - `feat` — new feature or capability
 - `fix` — bug fix
@@ -130,7 +154,7 @@ Analyze the changes to determine logical groupings:
 
 Derive the type from the changes, not the workitem type.
 
-### 7. Report Results
+### 8. Report Results
 
 After committing, report:
 - Mode used (task or manual)
