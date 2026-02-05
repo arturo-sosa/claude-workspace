@@ -301,6 +301,16 @@ Follow these rules:
     TASKS_COMPLETED=$((TASKS_COMPLETED + 1))
     echo ""
     echo "✅ $TASK_NAME completed!"
+
+    # Commit changes if worktree exists and task is not 01 (setup)
+    if [[ "$(basename "$NEXT_TASK")" != 01-* ]] && [ "$WORK_CWD" != "." ] && [ -d "$WORK_CWD" ]; then
+      COMMIT_SCRIPT=".claude/skills/workspace-commit/scripts/commit.sh"
+      if [ -f "$COMMIT_SCRIPT" ]; then
+        echo ""
+        echo "  📦 Committing changes..."
+        bash "$COMMIT_SCRIPT" "$WORK_CWD" || echo "  ⚠️  Commit step failed, continuing..."
+      fi
+    fi
   else
     TASKS_FAILED=$((TASKS_FAILED + 1))
     echo ""
