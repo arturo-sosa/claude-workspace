@@ -33,9 +33,9 @@ config.yaml           Repository and workspace configuration
 ## Workflow
 
 1. **Plan**: Start a workitem with `workspace-plan`. Choose a type (feature, bugfix, refactor, hotfix, chore), name it, and go through the discovery interview. The plan lands in `.claude/workitems/{type}/{name}/plan.md`. During planning, available processes (build, lint, test, typecheck) are detected from the codebase and recorded in the plan.
-2. **Review**: Run `workspace-plan-review` to validate the plan with a dual-agent review cycle. Uses type-specific review criteria. Logs to `.claude/workitems/{type}/{name}/logs/`.
+2. **Review**: Run `workspace-plan-review` to validate the plan using agent teams. Creates a team with planner and reviewer teammates that communicate via direct messages (not file-only). The reviewer evaluates the plan against type-specific criteria and iterates naturally with the planner until approval or the cycle stalls. Logs to `.claude/workitems/{type}/{name}/logs/`.
 3. **Generate tasks**: Run `workspace-task-generate` to break the plan into self-contained task files in `.claude/workitems/{type}/{name}/tasks/`. Available processes are propagated to each task's context.
-4. **Execute**: Run `workspace-execute` to orchestrate worker and reviewer agents using agent teams that implement and verify each task. Task 01 uses `workspace-worktree` to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}`, navigating into repo subdirectories as needed. After each task is approved, changes are committed as a single commit per task. Logs to `.claude/workitems/{type}/{name}/logs/`.
+4. **Execute**: Run `workspace-execute` to create an agent team with worker and reviewer teammates. The team lead populates a shared task list from task files, and teammates self-coordinate through direct messaging and the shared task list. Workers claim tasks, implement them, and notify reviewers. Reviewers verify work and mark tasks complete. The team lead monitors progress and handles escalations in delegate mode (coordination only, no code editing). Task 01 uses `workspace-worktree` to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}`, navigating into repo subdirectories as needed. After each task is approved, changes are committed as a single commit per task. Logs to `.claude/workitems/{type}/{name}/logs/`.
 5. **Archive**: Run `workspace-archive` to close a completed workitem. Generates a report, creates per-repo documentation, updates repo CLAUDE.md if structural changes warrant it, removes worktrees, and moves the workitem to archive.
 
 ## Skills
@@ -45,9 +45,9 @@ config.yaml           Repository and workspace configuration
 | `workspace-setup` | Initialize workspace — create config.yaml from template |
 | `workspace-repos` | Clone and sync repos from config.yaml |
 | `workspace-plan` | Plan a workitem via discovery interview |
-| `workspace-plan-review` | Dual-agent review cycle for plans |
+| `workspace-plan-review` | Agent team review cycle with planner + reviewer teammates |
 | `workspace-task-generate` | Break plan into self-contained task files |
-| `workspace-execute` | Orchestrate worker + reviewer agents using agent teams per task |
+| `workspace-execute` | Agent team orchestration — worker + reviewer teammates self-coordinate via shared task list and direct messaging |
 | `workspace-commit` | Commit changes in worktrees with proper git identity |
 | `workspace-worktree` | Create, remove, and check status of git worktrees |
 | `workspace-status` | Show progress across all workitems |
@@ -111,6 +111,26 @@ Commit attribution (e.g., Co-Authored-By trailers) is configured in `.claude/set
 
 The `workspace-commit` skill checks this setting and adds the trailer if configured.
 
+## Agent Teams
+
+The workspace uses Claude Code Agent Teams for orchestration in `workspace-execute` and `workspace-plan-review`. This requires the experimental feature flag in `.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+Agent teams enable:
+- **Persistent teammates** that self-coordinate via direct messaging
+- **Shared task list** with automatic dependency management
+- **Natural conversation** between planner and reviewer, worker and reviewer
+- **Delegate mode** where the team lead coordinates without editing code
+
+Teammates are spawned for the duration of a workitem and cleaned up when complete. All teammate activity is logged to `.claude/workitems/{type}/{name}/logs/`.
+
 ## Repos
 
 Repositories are defined in `config.yaml` and cloned into `repos/`. Use the `workspace-repos` skill to manage them (clone, refresh, status, add, remove). Refresh syncs repos/ to match config.yaml exactly — repos not in config are removed.
@@ -163,7 +183,7 @@ claude "review plan for feature/auth-middleware"
 # Generate tasks
 claude "generate tasks for feature/auth-middleware"
 
-# Execute tasks (worker + reviewer subagents)
+# Execute tasks (agent team orchestration)
 claude "execute tasks for feature/auth-middleware"
 
 # Check status
