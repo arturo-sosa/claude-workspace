@@ -1,3 +1,7 @@
 {
-  "model": "opusplan"
+  "model": "opusplan",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  }
 }
