@@ -6,6 +6,8 @@ worktrees/*
 !worktrees/.gitkeep
 
 .claude/workitems/*
+.claude/prd/*
+docs/*
 !.claude/workitems/.gitkeep
 
 .idea
