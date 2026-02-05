@@ -34,7 +34,7 @@ config.yaml           Repository and workspace configuration
 1. **Plan**: Start a workitem with `workspace-plan`. Choose a type (feature, bugfix, refactor, hotfix, chore), name it, and go through the discovery interview. The plan lands in `.claude/workitems/{type}/{name}/plan.md`. During planning, available processes (build, lint, test, typecheck) are detected from the codebase and recorded in the plan.
 2. **Review**: Run `workspace-plan-review` to validate the plan with a dual-agent review cycle. Uses type-specific review criteria. Logs to `.claude/workitems/{type}/{name}/logs/`.
 3. **Generate tasks**: Run `workspace-task-generate` to break the plan into self-contained task files in `.claude/workitems/{type}/{name}/tasks/`. Available processes are propagated to each task's context.
-4. **Execute**: Run `workspace-task-execute` to dispatch worker and reviewer subagents that implement and verify each task. Task 01 uses the `workspace-worktree` script to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}/`, navigating into repo subdirectories as needed. Logs to `.claude/workitems/{type}/{name}/logs/`.
+4. **Execute**: Run `workspace-task-execute` to dispatch worker and reviewer subagents that implement and verify each task. Task 01 uses the `workspace-worktree` script to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}/`, navigating into repo subdirectories as needed. After each task is approved, `workspace-commit` creates atomic commits. Logs to `.claude/workitems/{type}/{name}/logs/`.
 5. **Archive**: Run `workspace-archive` to close a completed workitem. Generates a report, creates per-repo documentation, updates repo CLAUDE.md if structural changes warrant it, removes worktrees, and moves the workitem to archive.
 
 ## Skills
@@ -49,6 +49,7 @@ config.yaml           Repository and workspace configuration
 | `workspace-task-execute` | Orchestrate worker + reviewer subagents per task |
 | `workspace-task-work` | Worker subagent — implements a single task |
 | `workspace-task-review` | Reviewer subagent — validates a single task |
+| `workspace-commit` | Create atomic commits from pending changes in worktrees |
 | `workspace-worktree` | Create, remove, and check status of git worktrees |
 | `workspace-status` | Show progress across all workitems |
 | `workspace-archive` | Archive completed workitems with reporting |
@@ -75,13 +76,19 @@ config.yaml           Repository and workspace configuration
 
 ## Git Identity
 
-**IMPORTANT: ALWAYS use the commit wrapper script for ALL git commits in this workspace and its repos/worktrees:**
+**For worktree commits, use the `workspace-commit` skill** — it analyzes changes and creates atomic commits automatically:
+
+```bash
+bash .claude/skills/workspace-commit/scripts/commit.sh worktrees/feature/auth-middleware
+```
+
+For manual commits, use the wrapper script:
 
 ```bash
 bash .claude/scripts/git-commit.sh -m "commit message"
 ```
 
-The script reads `git.user` and `git.email` from `config.yaml`:
+Both read `git.user` and `git.email` from `config.yaml`:
 
 ```yaml
 git:
@@ -89,7 +96,7 @@ git:
   email: "your@email.com"
 ```
 
-If not set (empty strings), falls back to system git config. NEVER use raw `git commit` — always use the wrapper script.
+If not set (empty strings), falls back to system git config. NEVER use raw `git commit` — always use the wrapper or `workspace-commit`.
 
 ## Repos
 
@@ -122,6 +129,10 @@ bash .claude/skills/workspace-status/scripts/status.sh feature/auth-middleware
 
 # Manage worktrees
 bash .claude/skills/workspace-worktree/scripts/worktree.sh status feature/auth-middleware
+
+# Commit changes in worktrees (atomic commits)
+bash .claude/skills/workspace-commit/scripts/commit.sh worktrees/feature/auth-middleware
+bash .claude/skills/workspace-commit/scripts/commit.sh worktrees/feature/auth-middleware --dry-run
 
 # Archive a completed workitem
 bash .claude/skills/workspace-archive/scripts/archive.sh feature/auth-middleware
