@@ -12,7 +12,7 @@ Commit changes in a worktree using the git identity from workspace config. Opera
 User requests like:
 - "commit changes for feature/auth-middleware"
 - "commit the task"
-- Invoked by `workspace-task-execute` after task approval
+- Invoked by `workspace-execute` after task approval
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ User requests like:
 
 ### Task Mode (Single Commit)
 
-**When**: Invoked from `workspace-task-execute` after a task is approved, or when the user explicitly mentions a task.
+**When**: Invoked from `workspace-execute` after a task is approved, or when the user explicitly mentions a task.
 
 **Behavior**: Bundle all changes into a single commit per repo. The commit represents the complete work of one task.
 
@@ -59,7 +59,7 @@ docs(readme): update authentication section
 ### 1. Identify the Worktree
 
 If not specified, determine from context:
-- If called from `workspace-task-execute`: use the current task's worktree
+- If called from `workspace-execute`: use the current task's worktree
 - Otherwise: ask the user which worktree to commit
 
 Worktrees are at `worktrees/{type}/{name}` with repo subdirectories inside.

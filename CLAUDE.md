@@ -35,7 +35,7 @@ config.yaml           Repository and workspace configuration
 1. **Plan**: Start a workitem with `workspace-plan`. Choose a type (feature, bugfix, refactor, hotfix, chore), name it, and go through the discovery interview. The plan lands in `.claude/workitems/{type}/{name}/plan.md`. During planning, available processes (build, lint, test, typecheck) are detected from the codebase and recorded in the plan.
 2. **Review**: Run `workspace-plan-review` to validate the plan with a dual-agent review cycle. Uses type-specific review criteria. Logs to `.claude/workitems/{type}/{name}/logs/`.
 3. **Generate tasks**: Run `workspace-task-generate` to break the plan into self-contained task files in `.claude/workitems/{type}/{name}/tasks/`. Available processes are propagated to each task's context.
-4. **Execute**: Run `workspace-task-execute` to dispatch worker and reviewer subagents that implement and verify each task. Task 01 uses `workspace-worktree` to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}`, navigating into repo subdirectories as needed. After each task is approved, changes are committed as a single commit per task. Logs to `.claude/workitems/{type}/{name}/logs/`.
+4. **Execute**: Run `workspace-execute` to orchestrate worker and reviewer agents using agent teams that implement and verify each task. Task 01 uses `workspace-worktree` to create worktrees. All subsequent tasks run from `worktrees/{type}/{name}`, navigating into repo subdirectories as needed. After each task is approved, changes are committed as a single commit per task. Logs to `.claude/workitems/{type}/{name}/logs/`.
 5. **Archive**: Run `workspace-archive` to close a completed workitem. Generates a report, creates per-repo documentation, updates repo CLAUDE.md if structural changes warrant it, removes worktrees, and moves the workitem to archive.
 
 ## Skills
@@ -47,9 +47,7 @@ config.yaml           Repository and workspace configuration
 | `workspace-plan` | Plan a workitem via discovery interview |
 | `workspace-plan-review` | Dual-agent review cycle for plans |
 | `workspace-task-generate` | Break plan into self-contained task files |
-| `workspace-task-execute` | Orchestrate worker + reviewer subagents per task |
-| `workspace-task-work` | Worker subagent — implements a single task |
-| `workspace-task-review` | Reviewer subagent — validates a single task |
+| `workspace-execute` | Orchestrate worker + reviewer agents using agent teams per task |
 | `workspace-commit` | Commit changes in worktrees with proper git identity |
 | `workspace-worktree` | Create, remove, and check status of git worktrees |
 | `workspace-status` | Show progress across all workitems |

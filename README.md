@@ -14,13 +14,13 @@ Ten skills that form a complete development lifecycle:
 
 | Skill | Purpose |
 |---|---|
+| `workspace-setup` | Initialize workspace — create config.yaml from template |
 | `workspace-repos` | Clone and sync repos from config.yaml |
 | `workspace-plan` | Interactive requirements gathering with type-specific templates |
 | `workspace-plan-review` | Dual-agent plan review cycle |
 | `workspace-task-generate` | Break plans into self-contained task files |
-| `workspace-task-execute` | Orchestrate task execution with worker/reviewer subagents |
-| `workspace-task-work` | Implement tasks (invoked by executor) |
-| `workspace-task-review` | Review implementations (invoked by executor) |
+| `workspace-execute` | Orchestrate task execution with worker/reviewer agents using agent teams |
+| `workspace-commit` | Commit changes in worktrees with proper git identity |
 | `workspace-worktree` | Create, remove, and check status of git worktrees |
 | `workspace-status` | Show progress across all workitems |
 | `workspace-archive` | Archive completed workitems with reporting |
@@ -36,10 +36,10 @@ workspace-plan-review    Dual-agent review (logged)
        ↓
 workspace-task-generate  Break into self-contained task files
        ↓
-workspace-task-execute   Orchestrate (logged, crash recovery)
-       ├── workspace-task-work      Implements
-       ├── workspace-task-review    Verifies
-       └── workspace-worktree       Creates worktrees (Task 01)
+workspace-execute        Orchestrate with agent teams (logged, crash recovery)
+       ├── Worker agent         Implements tasks
+       ├── Reviewer agent       Verifies implementations
+       └── workspace-worktree   Creates worktrees (Task 01)
        ↓
 workspace-status         Monitor progress
        ↓
@@ -62,15 +62,15 @@ claude "refresh repos"
 
 # Plan → Review → Generate → Execute
 claude "plan a feature called auth-middleware"
-bash .claude/skills/workspace-plan-review/scripts/plan_review.sh feature/auth-middleware
+claude "review plan for feature/auth-middleware"
 claude "generate tasks for feature/auth-middleware"
-bash .claude/skills/workspace-task-execute/scripts/task_executor.sh feature/auth-middleware
+claude "execute tasks for feature/auth-middleware"
 
 # Monitor
-bash .claude/skills/workspace-status/scripts/status.sh
+claude "show workspace status"
 
 # Archive
-bash .claude/skills/workspace-archive/scripts/archive.sh feature/auth-middleware
+claude "archive feature/auth-middleware"
 ```
 
 See `CLAUDE.md` for full details on structure, conventions, and configuration.
