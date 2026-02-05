@@ -1,0 +1,20 @@
+{
+  "model": "opusplan",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'IMPORTANT: Before continuing, read config.yaml, .claude/settings.json, and CLAUDE.md to ensure you follow workspace conventions.'"
+          }
+        ]
+      }
+    ]
+  }
+}

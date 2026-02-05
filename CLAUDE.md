@@ -6,7 +6,7 @@ This is a multi-repo workspace managed with Claude Code. Work is organized into 
 
 ```
 .claude/              Configuration and workitems
-  setting.json        Attribution and model settings
+  settings.json       Model, attribution, and hooks
   skills/             Installed skills
   workitems/          Active workitems organized by type
     feature/
@@ -97,7 +97,7 @@ Or just use `workspace-commit` which handles identity automatically.
 
 ## Attribution
 
-Commit attribution (e.g., Co-Authored-By trailers) is configured in `.claude/setting.json`:
+Commit attribution (e.g., Co-Authored-By trailers) is configured in `.claude/settings.json`:
 
 ```json
 {

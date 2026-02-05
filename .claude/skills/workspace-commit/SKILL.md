@@ -83,7 +83,7 @@ If `git.user` or `git.email` are empty or missing, fall back to system git confi
 
 ### 4. Check Attribution Settings
 
-Read `.claude/setting.json` for attribution configuration:
+Read `.claude/settings.json` for attribution configuration:
 
 ```json
 {
